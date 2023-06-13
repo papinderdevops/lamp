@@ -1,0 +1,7 @@
+[lamp]
+ubuntu
+
+[lamp:vars]
+ansible_become = True
+ansible_user=root
+ansible_become_pass=password

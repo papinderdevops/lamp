@@ -1,0 +1,61 @@
+---
+-
+  hosts: all
+  vars:
+    dc_root_path: /var/www/laravel/public
+    dc_root_folder: /var/www/laravel
+
+  tasks:
+  - name: dir.conf append index.php and index.html
+    blockinfile:
+      path: /etc/apache2/mods-available/dir.conf
+      marker: "{mark}"
+      marker_begin: "<IfModule mod_dir.c>"
+      marker_end: "</IfModule>"
+      block: |2
+              DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
+      state: present
+
+  - name: replacee multi lines in a file
+    replace:
+      path: "/etc/apache2/sites-available/000-default.conf"
+      regexp: "{{ item.regexp }}"
+      replace: "{{item.replace}}"
+    with_items:
+      -  { regexp: 'DocumentRoot /var/www/html', replace: 'DocumentRoot {{ dc_root_path }} '}
+#      -  { regexp: '#ServerName www.example.com', replace: '#ServerName www.example.com'}
+
+  - name: create folder for dc_root_folder
+    file:
+      name: "{{ dc_root_folder }}"
+      state: directory
+      mode: 775
+      owner: root
+      group: root
+
+##################### php.ini setting  ###########################
+
+  - name: register php version
+    command: php -v
+    register: phpversion
+## get major php version  ######
+  - set_fact:
+      my_var: "{{phpversion.stdout | regex_search('8.1')}}"
+
+##### change php.ini variable  ########
+  - name: replacee multi lines in a file
+    replace:
+      path: "/etc/php/8.1/apache2/php.ini"
+      regexp: "{{ item.regexp }}"
+      replace: "{{item.replace}}"
+    with_items:
+      -  { regexp: '(\w{3}\_\w{9}\_\w{4}\s\=\s\d{2})', replace: 'max_execution_time = 300'}
+      -  { regexp: '(\w{3}\_\w{4}\_\w{7}\s\=\s\d{2})', replace: 'max_file_uploads = 20000'}
+      -  { regexp: '(^memory\_\w{5}\s=\s\d{3}\w)', replace: 'memory_limit = 256M'}
+      -  { regexp: '(\w{4}\_\w{3}\_\w{4}\s\=\s\d{1}\w)', replace: 'post_max_size = 2000M'}
+      -  { regexp: '(\w{6}\_\w{3}\_\w{8}\s=\s\d{1}\w)', replace: 'upload_max_filesize = 2000M'}
+    when: my_var == "8.1"
+
+  - name: This is a php version
+    debug:
+      var: my_var
